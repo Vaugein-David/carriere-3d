@@ -1,0 +1,19 @@
+{
+ "source": "IGN ORTHOIMAGERY.ORTHOPHOTOS (WMS data.geopf.fr), EPSG:4326, BBOX lat 48.2370–48.2530, lon 1.6990–1.7270, 3000 × 2400 px",
+ "matrice_plan_vers_pixels_ign": [
+  [
+   -0.799193,
+   0.022597,
+   1865.453701
+  ],
+  [
+   0.009251,
+   -0.763758,
+   1528.895906
+  ]
+ ],
+ "points_retenus": 173,
+ "ecart_median_m": 0.21,
+ "metres_par_unite_du_plan": 0.5601,
+ "rotation_deg": 178.8
+}

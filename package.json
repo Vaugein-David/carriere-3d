@@ -1,0 +1,38 @@
+{
+  "name": "carriere-next",
+  "private": true,
+  "version": "2.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "dev:https": "next dev --experimental-https -H 0.0.0.0",
+    "build": "next build",
+    "build:pages": "STATIC_EXPORT=1 NEXT_PUBLIC_BASE_PATH=/carriere-3d next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "model:relief": "python3 scripts/3d/prepare_lidar.py",
+    "qr": "node scripts/qr.mjs",
+    "model": "node scripts/export-3d-data.mjs && /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup --python scripts/blender/build_carriere.py"
+  },
+  "dependencies": {
+    "@gsap/react": "^2.1.2",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
+    "gsap": "^3.15.0",
+    "next": "^16.4.5",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.187.0",
+    "three-mesh-bvh": "^0.9.18"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.187.0",
+    "qrcode": "^1.5.4",
+    "typescript": "^5.9.3"
+  },
+  "type": "module",
+  "homepage": "https://vaugein-david.github.io/carriere-3d/"
+}

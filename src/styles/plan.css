@@ -1,0 +1,573 @@
+/* Plan interactif : visionneuse, annotations, itinéraires, marqueurs, mode édition (repris de la version Vite) */
+/* ---------- Plan ---------- */
+
+.viewer {
+  position: relative;
+  /* Hauteur adaptée au format de l'image, bornée pour laisser voir la suite de la page */
+  height: clamp(300px, calc(100vw * var(--ratio, 0.75)), min(64svh, 780px));
+  overflow: hidden;
+  background: #1b1b1b;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: grab;
+}
+
+.viewer:active {
+  cursor: grabbing;
+}
+
+.viewer:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 4px var(--yellow);
+}
+
+@media (min-width: 720px) {
+  .viewer {
+    height: clamp(300px, calc((min(100vw, 992px) - 32px) * var(--ratio, 0.75)), min(70svh, 780px));
+    margin: 0 16px;
+    border: 3px solid #000;
+    border-radius: var(--radius);
+  }
+}
+
+.viewer-content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+
+.viewer-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Masqué jusqu'au fondu d'intro (GSAP pose ensuite l'opacité en ligne) */
+.viewer:not(.is-live) .viewer-img {
+  opacity: 0;
+}
+
+.image-credit {
+  margin: 4px 16px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 10px 16px 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-swatch {
+  width: 26px;
+  height: 8px;
+  border: 1.5px solid var(--line);
+  border-radius: 4px;
+}
+
+.annot-arrow path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.annot-arrow-casing {
+  stroke: #000;
+  stroke-opacity: 0.6;
+  stroke-width: 5.5;
+}
+
+.annot-arrow-line {
+  stroke-width: 3;
+}
+
+/* Étiquettes des stocks posées sur la photo */
+.annot-shape {
+  fill-opacity: 0.82;
+  stroke: #2B2B2B;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+/* Stock de l'itinéraire choisi */
+.annot-area.is-target .annot-shape {
+  fill-opacity: 1;
+  stroke: #E0001B;
+  stroke-width: 4;
+  animation: target-pulse 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes target-pulse {
+  from {
+    stroke-width: 3;
+  }
+  to {
+    stroke-width: 7;
+  }
+}
+
+.annot-label,
+.annot-text {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.annot-text {
+  fill: #1A1A1A;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.viewer-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.viewer:not(.is-loaded) .viewer-svg {
+  visibility: hidden;
+}
+
+.viewer-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: #fff;
+  font-weight: 700;
+}
+
+.viewer-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.map-btn {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  border: 2px solid #000;
+  border-radius: 12px;
+  background: #fff;
+  color: #000;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+}
+
+.map-btn:active {
+  transform: scale(0.94);
+}
+
+.icon {
+  width: 26px;
+  height: 26px;
+  flex: none;
+}
+
+.viewer-tip {
+  margin: 8px 16px 0;
+  color: var(--soft);
+  font-size: 15px;
+}
+
+/* Zones cliquables */
+
+.hotspot {
+  cursor: pointer;
+  outline: none;
+}
+
+.hotspot-casing {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: 0.55;
+  stroke-linejoin: round;
+}
+
+.hotspot-shape {
+  fill: var(--hs-color);
+  fill-opacity: 0.22;
+  stroke: var(--hs-color);
+  stroke-linejoin: round;
+  transition: fill-opacity 0.2s;
+}
+
+.hotspot:hover .hotspot-shape,
+.hotspot.is-selected .hotspot-shape {
+  fill-opacity: 0.5;
+}
+
+.hotspot-focus {
+  fill: none;
+  stroke: var(--focus);
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.hotspot:focus-visible .hotspot-focus,
+.hotspot.is-selected .hotspot-focus {
+  opacity: 1;
+}
+
+.hotspot.is-selected .hotspot-focus {
+  stroke: #fff;
+}
+
+.hotspot-hit {
+  fill: transparent;
+  stroke: transparent;
+  pointer-events: all;
+}
+
+.hotspot-pulse {
+  fill: none;
+  stroke: var(--hs-color);
+  stroke-width: calc(var(--u) * 3px);
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.viewer.is-live .hotspot-pulse {
+  animation: hs-pulse 2.6s ease-out infinite;
+}
+
+.viewer.is-live .hotspot--polygon .hotspot-pulse {
+  animation-name: hs-pulse-soft;
+}
+
+@keyframes hs-pulse {
+  0% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+@keyframes hs-pulse-soft {
+  0% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+/* Itinéraires */
+
+.routes {
+  pointer-events: none;
+}
+
+.route-casing,
+.route-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.route-casing {
+  stroke: #000;
+  stroke-opacity: 0.6;
+}
+
+.route-chevron {
+  fill: none;
+  stroke: var(--chevron, #000);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Marqueurs */
+
+.marker {
+  cursor: pointer;
+  outline: none;
+}
+
+.marker-label {
+  fill: #fff;
+  stroke: #000;
+  paint-order: stroke;
+  stroke-linejoin: round;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 850;
+  pointer-events: none;
+}
+
+.marker-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.marker-core {
+  stroke: #fff;
+}
+
+.marker:focus-visible .marker-core {
+  stroke: var(--yellow);
+}
+
+.marker--assembly .marker-core {
+  fill: #d50000;
+}
+
+.marker-glyph {
+  fill: #fff;
+  pointer-events: none;
+}
+
+.marker-ring {
+  fill: none;
+  stroke: #ff1a1a;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.viewer.is-live .marker-ring {
+  animation: ring 2s ease-out infinite;
+}
+
+.viewer.is-live .marker-ring--late {
+  animation-delay: 1s;
+}
+
+@keyframes ring {
+  0% {
+    opacity: 0.95;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
+  }
+}
+
+.marker-flash {
+  fill: rgb(255 0 0 / 0.3);
+  stroke: #ff0000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.marker--here .marker-core {
+  fill: #0050e6;
+}
+
+.marker-halo {
+  fill: #0050e6;
+  opacity: 0.3;
+}
+
+/* Mode édition */
+
+.viewer.is-editing {
+  cursor: crosshair;
+}
+
+.viewer.is-editing .hotspot,
+.viewer.is-editing .marker {
+  pointer-events: none;
+}
+
+.edit-overlay {
+  pointer-events: none;
+}
+
+.edit-overlay path,
+.edit-overlay polygon,
+.edit-overlay > circle {
+  fill: rgb(255 0 255 / 0.15);
+  stroke: #ff00ff;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.edit-overlay path {
+  fill: none;
+}
+
+.edit-vertex {
+  fill: #fff;
+  stroke: #ff00ff;
+}
+
+.edit-index {
+  fill: #fff;
+  stroke: #000;
+  paint-order: stroke;
+  font-family: ui-monospace, Menlo, monospace;
+  font-weight: 800;
+}
+
+.edit-cross line {
+  stroke: #00e5ff;
+}
+
+.viewer-hud {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 1;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.85);
+  color: var(--yellow);
+  font: 700 17px ui-monospace, Menlo, monospace;
+  pointer-events: none;
+}
+
+.edit-panel {
+  margin: 12px 16px 0;
+  padding: 16px;
+  border: 3px dashed #ff00ff;
+  border-radius: var(--radius);
+  background: #161616;
+  color: #fff;
+}
+
+.edit-panel h2 {
+  margin: 0 0 10px;
+  font-size: 21px;
+}
+
+.edit-modes,
+.edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.edit-actions {
+  margin: 10px 0;
+}
+
+.edit-hint,
+.edit-last {
+  margin: 10px 0 0;
+}
+
+.edit-warning {
+  margin: 0 0 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #ffdede;
+  color: #5a0000;
+  font-weight: 700;
+}
+
+.edit-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
+.edit-toggle input {
+  width: 22px;
+  height: 22px;
+}
+
+.edit-code-label {
+  display: block;
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+.edit-code {
+  display: block;
+  width: 100%;
+  margin: 8px 0 10px;
+  padding: 10px;
+  border: 2px solid #444;
+  border-radius: 8px;
+  background: #000;
+  color: #a6ffb0;
+  font: 14px/1.45 ui-monospace, Menlo, monospace;
+  resize: vertical;
+}
+
+.edit-copied {
+  margin: 8px 0 0;
+  color: var(--yellow);
+  font-weight: 700;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 16px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--yellow);
+}
+
+/* ---------- Mouvement réduit ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .annot-area.is-target .annot-shape {
+    animation: none;
+  }
+  .viewer.is-live .hotspot-pulse,
+  .viewer.is-live .marker-ring {
+    animation: none;
+  }
+  .step,
+  .hotspot-shape {
+    transition: none;
+  }
+}
+
